@@ -1,0 +1,4 @@
+docker run --name deel-postgres --hostname postgres --network deel -p 5432:5432 \
+--volume deel-postgres:/var/lib/postgresql/data \
+-e POSTGRES_USER=deel -e  POSTGRES_PASSWORD=admin -e POSTGRES_DB=deel \
+-d postgres:12

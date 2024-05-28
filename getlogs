@@ -1,0 +1,15 @@
+#!/bin/zsh
+
+set -e -o pipefail
+
+kubectl logs -f deployments/payroll-processing-worker > worker.log &
+disown
+kubectl logs -f deployments/payroll-processing-worker-symmetryentity > symmetry.log &
+disown
+kubectl logs -f deployments/payroll-processing-worker-payslipsgenerationentity > payslips.log &
+disown
+kubectl logs -f deployments/payroll-processing-api > payroll-processing-api.log &
+disown
+kubectl logs -f deployments/employment > employment.log &
+disown
+kubectl logs -f deployments/backend-main > backend.log 

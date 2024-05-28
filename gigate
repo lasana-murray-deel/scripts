@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+
+const cp = require('node:child_process');
+const path = require('node:path');
+const fs = require('node:fs').promises;
+
+const exec = cmd => new Promise((resolve, reject) => {
+  if(process.env.DEBUG) console.warn('exec-> ', cmd);
+  cp.exec(cmd, (err, stdout, stderr) => {
+    if (err) {
+      reject(err);
+    } else {
+      resolve(stdout);
+    }
+  })})
+
+// usage: gigate <namespace> <deployment> <giger>
+const main = async () => {
+  let namespace = process.argv[2] ?? path.basename(process.cwd());
+  let deployment = process.argv[3] ?? namespace;
+  let giger = process.argv[4] ?? `dev-${process.env.ge}`;
+
+  let branch = await exec("git branch --show-current");
+  let revision = await exec("git log --pretty=format:'%H' -n 1");
+  let namespaceConf = JSON.parse(await exec(`kubectl get namespaces/${giger} -o json`));
+  let services = JSON.parse(namespaceConf.metadata.annotations['deel.giger/services']);
+
+  services = services.map(service => {
+    if(service.name === namespace) {
+      service.sha = revision;
+      branch = branch;
+    }
+    return service;
+  });
+
+  namespaceConf.metadata.annotations['deel.giger/services'] = JSON.stringify(services);
+
+  console.info(`Updating namespace with revision ${revision}...`);
+  let namespacePath = `/tmp/${namespace}-namespace.json`;
+  await fs.writeFile(namespacePath, JSON.stringify(namespaceConf));
+  await exec(`kubectl apply -f ${namespacePath}`);
+  console.info('Done!');
+
+  let deploymentConf = JSON.parse(await exec(`kubectl get deployments/${deployment} -o json`));
+  deploymentConf.spec.template.spec.containers = deploymentConf.spec.template.spec.containers.map(container => { 
+    if(container.env) {
+      container.env =container.env.filter(env => env.name !== 'DEV_REVISION');
+      container.env.push({name: 'DEV_REVISION', value: revision});
+    }
+
+    return container;
+
+    })
+
+  console.info(`Writing revision ${revision} to env var to deployment...`);
+  let deploymentPath = `/tmp/${deployment}-deployment.json`;
+  await fs.writeFile(deploymentPath, JSON.stringify(deploymentConf));
+  await exec(`kubectl apply -f ${deploymentPath}`);
+  console.info('Done!');
+}
+
+main();

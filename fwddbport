@@ -1,0 +1,33 @@
+#!/bin/zsh
+
+usage() {
+    echo "Usage: $0 [--namespace NAMESPACE] [--port PORT]"
+}
+
+# Default values from environment variables
+DEFAULT_NAMESPACE=$ge
+DEFAULT_PORT=7728
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --namespace)
+            shift
+            NAMESPACE=$1
+            ;;
+        --port)
+            shift
+            PORT=$1
+            ;;
+        *)
+            usage
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+
+NAMESPACE=${NAMESPACE:-$DEFAULT_NAMESPACE}
+PORT=${PORT:-$DEFAULT_PORT}
+
+kubectl port-forward --namespace $NAMESPACE pods/postgres-deel-0 $PORT:5432
